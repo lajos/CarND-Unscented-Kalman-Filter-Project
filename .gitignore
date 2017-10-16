@@ -4,7 +4,8 @@
 # build files
 build/
 
-
+# astyle backups
+*.orig
 
 
 ## Ignore Visual Studio temporary files, build results, and
