@@ -108,6 +108,9 @@ private:
 
 	// sigma points
 	MatrixXd Xsig_;
+
+	// Generate sigma points
+	MatrixXd GenerateSigmaPoints(const VectorXd& x, const MatrixXd& P, const int& n_x, const double& lambda);
 };
 
 #endif /* UKF_H */

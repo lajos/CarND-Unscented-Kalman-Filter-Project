@@ -24,7 +24,12 @@ UKF::UKF() {
 
 	// initial covariance matrix
 	P_ = MatrixXd(5, 5);
-	P_.fill(0);
+	P_ <<
+	   1, 0, 0, 0, 0,
+	   0, 1, 0, 0, 0,
+	   0, 0, 1, 0, 0,
+	   0, 0, 0, 1, 0,
+	   0, 0, 0, 0, 1;
 
 	// Process noise standard deviation longitudinal acceleration in m/s^2
 	std_a_ = 30;
@@ -152,4 +157,22 @@ void UKF::UpdateRadar(const MeasurementPackage& measurement_pack) {
 
 	You'll also need to calculate the radar NIS.
 	*/
+}
+
+MatrixXd UKF::GenerateSigmaPoints(const VectorXd& x, const MatrixXd& P, const int& n_x, const double& lambda) {
+	//create sigma point matrix
+	MatrixXd Xsig = MatrixXd(n_x, 2 * n_x + 1);
+	Xsig.fill(0);
+
+	//calculate square root of P_ state covariance
+	MatrixXd A = P.llt().matrixL();
+
+	Xsig.col(0) = x;
+
+	for (unsigned int i = 0; i < n_x; ++i) {
+		Xsig.col(i + 1) = x + sqrt(lambda + n_x) * A.col(i);
+		Xsig.col(n_x + i + 1) = x - sqrt(lambda + n_x) * A.col(i);
+	}
+
+	return Xsig;
 }
