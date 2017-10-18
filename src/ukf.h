@@ -24,8 +24,8 @@ public:
 	///* state covariance matrix
 	MatrixXd P_;
 
-	///* predicted sigma points matrix
-	MatrixXd Xsig_pred_;
+	// process noise covariance matrix
+	MatrixXd Q_;
 
 	///* time when the state is true, in us
 	long long time_us_;
@@ -63,6 +63,17 @@ public:
 	///* Sigma point spreading parameter
 	double lambda_;
 
+	// augmented state vector
+	VectorXd x_aug_;
+
+	// augmented state covariance
+	MatrixXd P_aug_;
+
+	// augmented sigma point matrix
+	MatrixXd Xsig_aug_;
+
+	// predicted sigma points
+	MatrixXd Xsig_pred_;
 
 	/**
 	 * Constructor
@@ -106,11 +117,11 @@ private:
 	// previous timestamp
 	long long previous_timestamp_;
 
-	// sigma points
-	MatrixXd Xsig_;
+	// generate augmented sigma points
+	void GenerateAugmentedSigmaPoints();
 
-	// Generate sigma points
-	MatrixXd GenerateSigmaPoints(const VectorXd& x, const MatrixXd& P, const int& n_x, const double& lambda);
+	// predict sigma points
+	void PredictSigmaPoints(const double& delta_t);
 };
 
 #endif /* UKF_H */

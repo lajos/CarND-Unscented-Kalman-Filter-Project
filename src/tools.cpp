@@ -34,9 +34,10 @@ VectorXd Tools::PolarToCartesian(const double& rho, const double& phi, const dou
 	double py = rho * sin(phi);
 	double vx = rhodot * sin(phi);
 	double vy = rhodot * cos(phi);
+	double v = sqrt(vx * vx + vy * vy);
 
-	VectorXd cartesian(4);
-	cartesian << px, py, vx, vy;
+	VectorXd cartesian(5);
+	cartesian << px, py, v, 0, 0;
 	return cartesian;
 }
 
