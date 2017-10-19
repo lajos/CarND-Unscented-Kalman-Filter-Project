@@ -29,6 +29,9 @@
     <ClInclude Include="src\tools.h" />
     <ClInclude Include="src\ukf.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="eigen.natvis" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{F1EE6D8F-4BEB-462C-80FC-15A909467CBC}</ProjectGuid>

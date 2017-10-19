@@ -75,6 +75,23 @@ public:
 	// predicted sigma points
 	MatrixXd Xsig_pred_;
 
+	//radar measurement dimension (r, phi, r_dot)
+	int n_z_radar_;
+
+	// radar predicted mean
+	VectorXd z_pred_radar_;
+
+	// radar predicted covariance
+	MatrixXd S_radar_;
+
+	// radar measurement noise covariance matrix
+	MatrixXd R_radar_;
+
+	// sigma points in radar measurement space
+	MatrixXd Zsig_radar_;
+
+
+
 	/**
 	 * Constructor
 	 */
@@ -122,6 +139,15 @@ private:
 
 	// predict sigma points
 	void PredictSigmaPoints(const double& delta_t);
+
+	// predict mean and covariance
+	void PredictMeanAndCovariance();
+
+	// predict radar measurement mean and covariance
+	void PredictRadarMeasurement();
+
+	// update radar state
+	void UpdateRadarState(const VectorXd& z);
 };
 
 #endif /* UKF_H */
