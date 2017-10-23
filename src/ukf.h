@@ -90,6 +90,15 @@ public:
 	// sigma points in radar measurement space
 	MatrixXd Zsig_radar_;
 
+	// number of radar measurements
+	long num_radar_measurement_;
+
+	// number of radar measurements above 95%
+	long num_radar_measurement_95_;
+
+	// radar measurement 95% NIS target
+	double e_radar_95_;
+
 	// laser measurement dimension (px, py)
 	int n_z_laser_;
 
@@ -104,6 +113,15 @@ public:
 
 	// sigma points in laser measurement space
 	MatrixXd Zsig_laser_;
+
+	// number of laser measurements
+	long num_laser_measurement_;
+
+	// number of laser measurements above 95%
+	long num_laser_measurement_95_;
+
+	// laser measurement 95% NIS target
+	double e_laser_95_;
 
 
 
@@ -161,14 +179,14 @@ private:
 	// predict radar measurement mean and covariance
 	void PredictRadarMeasurement();
 
-	// update radar state
-	void UpdateRadarState(const VectorXd& z);
+	// update radar state based on measurement z, return NIS
+	double UpdateRadarState(const VectorXd& z);
 
 	// predict laser measurement mean and covariance
 	void PredictLaserMeasurement();
 
-	// update laser state
-	void UpdateLaserState(const VectorXd& z);
+	// update laser state based on measurement z, return NIS
+	double UpdateLaserState(const VectorXd& z);
 };
 
 #endif /* UKF_H */

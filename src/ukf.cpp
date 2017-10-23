@@ -47,10 +47,10 @@ UKF::UKF() {
 	std_radr_ = 0.3;
 
 	// Radar measurement noise standard deviation angle in rad
-	std_radphi_ = 0.03;
+	std_radphi_ = 0.025;
 
 	// Radar measurement noise standard deviation radius change in m/s
-	std_radrd_ = 0.3;
+	std_radrd_ = 0.4;
 
 	// State dimension
 	n_x_ = 5;
@@ -127,6 +127,24 @@ UKF::UKF() {
 	// sigma points in laser measurement space
 	Zsig_laser_ = MatrixXd(n_z_laser_, 2 * n_aug_ + 1);
 
+	// number of radar measurements
+	num_radar_measurement_ = 0;
+
+	// number of radar measurements above 95%
+	num_radar_measurement_95_ = 0;
+
+	// radar measurement 95% NIS target
+	e_radar_95_ = 7.815;    // 3 degrees of freedom
+
+	// number of laser measurements
+	num_laser_measurement_ = 0;
+
+	// number of laser measurements above 95%
+	num_laser_measurement_95_ = 0;
+
+	// laser measurement 95% NIS target
+	e_laser_95_ = 5.991;	// 2 degrees of freedom
+
 }
 
 UKF::~UKF() {}
@@ -136,14 +154,6 @@ UKF::~UKF() {}
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(const MeasurementPackage& measurement_pack) {
-
-	if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
-		cout << "process RADAR measurement" << endl;
-	}
-
-	if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
-		cout << "process LASER measurement" << endl;
-	}
 
 	// ignore measurement if not used
 	if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR && !use_radar_) return;
@@ -158,9 +168,22 @@ void UKF::ProcessMeasurement(const MeasurementPackage& measurement_pack) {
 
 		if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
 			// convert radar from polar to cartesian coordinates and initialize state.
-			x_ << Tools::PolarToCartesian(measurement_pack.raw_measurements_[0],   // rho
-										  measurement_pack.raw_measurements_[1],   // phi
-										  measurement_pack.raw_measurements_[2]);  // rhodot
+			double rho = measurement_pack.raw_measurements_[0];
+			double phi = measurement_pack.raw_measurements_[1];
+			double rhodot = measurement_pack.raw_measurements_[2];
+
+			double px = rho * cos(phi);
+			double py = rho * sin(phi);
+			double vx = rhodot * sin(phi);
+			double vy = rhodot * cos(phi);
+			double v = sqrt(vx * vx + vy * vy);
+
+			x_ << px,
+			py,
+			v,
+			0,
+			0;
+
 		} else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
 			x_ << measurement_pack.raw_measurements_[0],   // px
 			measurement_pack.raw_measurements_[1],		   // py
@@ -202,11 +225,6 @@ void UKF::ProcessMeasurement(const MeasurementPackage& measurement_pack) {
  * measurement and this one.
  */
 void UKF::Prediction(double delta_t) {
-	/**
-	TODO:
-	Complete this function! Estimate the object's location. Modify the state
-	vector, x_. Predict sigma points, the state, and the state covariance matrix.
-	*/
 	x_aug_.block(0, 0, n_x_, 1) = x_;
 	GenerateAugmentedSigmaPoints();
 	PredictSigmaPoints(delta_t);
@@ -218,20 +236,20 @@ void UKF::Prediction(double delta_t) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateLidar(const MeasurementPackage& measurement_pack) {
-	/**
-	TODO:
-
-	Complete this function! Use lidar data to update the belief about the object's
-	position. Modify the state vector, x_, and covariance, P_.
-
-	You'll also need to calculate the lidar NIS.
-	*/
 	PredictLaserMeasurement();
 	VectorXd z = VectorXd(n_z_laser_);
 	z << measurement_pack.raw_measurements_[0],   // px
-	measurement_pack.raw_measurements_[1];    // py
+	measurement_pack.raw_measurements_[1];        // py
 
-	UpdateLaserState(z);
+	double e = UpdateLaserState(z);
+
+	num_laser_measurement_ += 1;
+	if (e > e_laser_95_) {
+		num_laser_measurement_95_ += 1;
+	}
+
+	cout << "laser NIS over 95% target: " << 1.0 * num_laser_measurement_95_ / num_laser_measurement_ * 100 << endl;
+
 }
 
 /**
@@ -239,26 +257,25 @@ void UKF::UpdateLidar(const MeasurementPackage& measurement_pack) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateRadar(const MeasurementPackage& measurement_pack) {
-	/**
-	TODO:
-
-	Complete this function! Use radar data to update the belief about the object's
-	position. Modify the state vector, x_, and covariance, P_.
-
-	You'll also need to calculate the radar NIS.
-	*/
 	PredictRadarMeasurement();
 	VectorXd z = VectorXd(n_z_radar_);
 	z << measurement_pack.raw_measurements_[0],   // r
-	measurement_pack.raw_measurements_[1],    // phi
-	measurement_pack.raw_measurements_[2];    // r_dot
+	measurement_pack.raw_measurements_[1],        // phi
+	measurement_pack.raw_measurements_[2];        // r_dot
 
-	UpdateRadarState(z);
+	double e = UpdateRadarState(z);
+	num_radar_measurement_ += 1;
+	if (e > e_radar_95_) {
+		num_radar_measurement_95_ += 1;
+	}
+
+	cout << "radar NIS over 95% target: " << 1.0 * num_radar_measurement_95_ / num_radar_measurement_ * 100 << endl;
+
 }
 
 void UKF::GenerateAugmentedSigmaPoints() {
 	// create augmented covariance matrix
-	P_aug_.fill(0);								// TODO: is this needed? or does it carry from previous state?
+	P_aug_.fill(0);
 	P_aug_.block(0, 0, n_x_, n_x_) = P_;
 	P_aug_.block(n_x_, n_x_, 2, 2) = Q_;
 	//cout << "P_aug" << endl << P_aug_ << endl;
@@ -356,7 +373,6 @@ void UKF::PredictRadarMeasurement() {
 		double v1 = cos(yaw) * v;
 		double v2 = sin(yaw) * v;
 
-		// TODO: move this conversion to tools?
 		// measurement model
 		Zsig_radar_(0, i) = sqrt(p_x * p_x + p_y * p_y);                           // r
 		Zsig_radar_(1, i) = atan2(p_y, p_x);                                       // phi
@@ -390,7 +406,7 @@ void UKF::PredictRadarMeasurement() {
 	S_radar_ = S;
 }
 
-void UKF::UpdateRadarState(const VectorXd& z) {
+double UKF::UpdateRadarState(const VectorXd& z) {
 	//create matrix for cross correlation Tc
 	MatrixXd Tc = MatrixXd(n_x_, n_z_radar_);
 
@@ -424,6 +440,9 @@ void UKF::UpdateRadarState(const VectorXd& z) {
 	x_ = x_ + K * z_diff;
 	P_ = P_ - K * S_radar_ * K.transpose();
 
+	double e = z_diff.transpose() * S_radar_.inverse() * z_diff;
+
+	return e;
 }
 
 void UKF::PredictLaserMeasurement() {
@@ -453,7 +472,7 @@ void UKF::PredictLaserMeasurement() {
 	S_laser_ = S;
 }
 
-void UKF::UpdateLaserState(const VectorXd& z) {
+double UKF::UpdateLaserState(const VectorXd& z) {
 	//create matrix for cross correlation Tc
 	MatrixXd Tc = MatrixXd(n_x_, n_z_laser_);
 
@@ -474,11 +493,12 @@ void UKF::UpdateLaserState(const VectorXd& z) {
 	//residual
 	VectorXd z_diff = z - z_pred_laser_;
 
-	//angle normalization
-	z_diff(1) = Tools::ConstrainRadian(z_diff(1));
-
 	//update state mean and covariance matrix
 	x_ = x_ + K * z_diff;
 	P_ = P_ - K * S_laser_ * K.transpose();
 
+	// calculate NIS
+	double e = z_diff.transpose() * S_laser_.inverse() * z_diff;
+
+	return e;
 }
