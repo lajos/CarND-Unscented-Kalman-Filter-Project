@@ -13,7 +13,7 @@ using std::vector;
  */
 UKF::UKF() {
 	// if this is false, laser measurements will be ignored (except during init)
-	use_laser_ = false;
+	use_laser_ = true;
 
 	// if this is false, radar measurements will be ignored (except during init)
 	use_radar_ = true;
@@ -109,6 +109,23 @@ UKF::UKF() {
 
 	// sigma points in radar measurement space
 	Zsig_radar_ = MatrixXd(n_z_radar_, 2 * n_aug_ + 1);
+
+	// laser measurement dimension (px, py)
+	n_z_laser_ = 2;
+
+	// laser predicted mean
+	z_pred_laser_ = VectorXd(n_z_laser_);
+
+	// laser predicted covariance
+	S_laser_ = MatrixXd(n_z_laser_, n_z_laser_);
+
+	// laser measurement noise covariance matrix
+	R_laser_ = MatrixXd(n_z_laser_, n_z_laser_);
+	R_laser_ << std_laspx_*std_laspx_, 0,
+			 0, std_laspy_*std_laspy_;
+
+	// sigma points in laser measurement space
+	Zsig_laser_ = MatrixXd(n_z_laser_, 2 * n_aug_ + 1);
 
 }
 
@@ -209,6 +226,12 @@ void UKF::UpdateLidar(const MeasurementPackage& measurement_pack) {
 
 	You'll also need to calculate the lidar NIS.
 	*/
+	PredictLaserMeasurement();
+	VectorXd z = VectorXd(n_z_laser_);
+	z << measurement_pack.raw_measurements_[0],   // px
+	measurement_pack.raw_measurements_[1];    // py
+
+	UpdateLaserState(z);
 }
 
 /**
@@ -312,8 +335,6 @@ void UKF::PredictMeanAndCovariance() {
 
 		//angle normalization
 		x_diff(3) = Tools::ConstrainRadian(x_diff(3));
-		//while (x_diff(3) > M_PI) x_diff(3) -= 2.*M_PI;
-		//while (x_diff(3) < -M_PI) x_diff(3) += 2.*M_PI;
 
 		P = P + weights_(i) * x_diff * x_diff.transpose();
 	}
@@ -358,8 +379,6 @@ void UKF::PredictRadarMeasurement() {
 
 		//angle normalization
 		z_diff(1) = Tools::ConstrainRadian(z_diff(1));
-		//while (z_diff(1) > M_PI) z_diff(1) -= 2.*M_PI;
-		//while (z_diff(1) < -M_PI) z_diff(1) += 2.*M_PI;
 
 		S = S + weights_(i) * z_diff * z_diff.transpose();
 	}
@@ -382,16 +401,12 @@ void UKF::UpdateRadarState(const VectorXd& z) {
 
 		//angle normalization
 		z_diff(1) = Tools::ConstrainRadian(z_diff(1));
-		//while (z_diff(1)> M_PI) z_diff(1) -= 2.*M_PI;
-		//while (z_diff(1)<-M_PI) z_diff(1) += 2.*M_PI;
 
 		// state difference
 		VectorXd x_diff = Xsig_pred_.col(i) - x_;
 
 		//angle normalization
 		x_diff(3) = Tools::ConstrainRadian(x_diff(3));
-		//while (x_diff(3)> M_PI) x_diff(3) -= 2.*M_PI;
-		//while (x_diff(3)<-M_PI) x_diff(3) += 2.*M_PI;
 
 		Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
 	}
@@ -404,11 +419,66 @@ void UKF::UpdateRadarState(const VectorXd& z) {
 
 	//angle normalization
 	z_diff(1) = Tools::ConstrainRadian(z_diff(1));
-	//while (z_diff(1)> M_PI) z_diff(1) -= 2.*M_PI;
-	//while (z_diff(1)<-M_PI) z_diff(1) += 2.*M_PI;
 
 	//update state mean and covariance matrix
 	x_ = x_ + K * z_diff;
 	P_ = P_ - K * S_radar_ * K.transpose();
+
+}
+
+void UKF::PredictLaserMeasurement() {
+
+	// copy sigma points (row 0 is px, row 1 is py)
+	Zsig_laser_ = Xsig_pred_.block(0, 0, n_z_laser_, 2 * n_aug_ + 1);
+
+	// mean predicted measurement
+	VectorXd z_pred = VectorXd(n_z_laser_);
+	z_pred.fill(0.0);
+	for (int i = 0; i < 2 * n_aug_ + 1; i++) {
+		z_pred = z_pred + weights_(i) * Zsig_laser_.col(i);
+	}
+
+	//measurement covariance matrix S
+	MatrixXd S = MatrixXd(n_z_laser_, n_z_laser_);
+	S.fill(0.0);
+	for (int i = 0; i < 2 * n_aug_ + 1; i++) {
+		VectorXd z_diff = Zsig_laser_.col(i) - z_pred;
+		S = S + weights_(i) * z_diff * z_diff.transpose();
+	}
+
+	//add measurement noise covariance matrix
+	S = S + R_laser_;
+
+	z_pred_laser_ = z_pred;
+	S_laser_ = S;
+}
+
+void UKF::UpdateLaserState(const VectorXd& z) {
+	//create matrix for cross correlation Tc
+	MatrixXd Tc = MatrixXd(n_x_, n_z_laser_);
+
+	//calculate cross correlation matrix
+	Tc.fill(0.0);
+	for (int i = 0; i < 2 * n_aug_ + 1; i++) {
+		VectorXd z_diff = Zsig_laser_.col(i) - z_pred_laser_;
+
+		// state difference
+		VectorXd x_diff = Xsig_pred_.col(i) - x_;
+
+		Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
+	}
+
+	//Kalman gain K;
+	MatrixXd K = Tc * S_laser_.inverse();
+
+	//residual
+	VectorXd z_diff = z - z_pred_laser_;
+
+	//angle normalization
+	z_diff(1) = Tools::ConstrainRadian(z_diff(1));
+
+	//update state mean and covariance matrix
+	x_ = x_ + K * z_diff;
+	P_ = P_ - K * S_laser_ * K.transpose();
 
 }

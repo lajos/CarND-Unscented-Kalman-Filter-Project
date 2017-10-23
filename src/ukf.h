@@ -90,6 +90,21 @@ public:
 	// sigma points in radar measurement space
 	MatrixXd Zsig_radar_;
 
+	// laser measurement dimension (px, py)
+	int n_z_laser_;
+
+	// laser predicted mean
+	VectorXd z_pred_laser_;
+
+	// laser predicted covariance
+	MatrixXd S_laser_;
+
+	// laser measurement noise covariance matrix
+	MatrixXd R_laser_;
+
+	// sigma points in laser measurement space
+	MatrixXd Zsig_laser_;
+
 
 
 	/**
@@ -148,6 +163,12 @@ private:
 
 	// update radar state
 	void UpdateRadarState(const VectorXd& z);
+
+	// predict laser measurement mean and covariance
+	void PredictLaserMeasurement();
+
+	// update laser state
+	void UpdateLaserState(const VectorXd& z);
 };
 
 #endif /* UKF_H */
