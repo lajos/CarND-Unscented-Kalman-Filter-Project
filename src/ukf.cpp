@@ -164,7 +164,7 @@ void UKF::ProcessMeasurement(const MeasurementPackage& measurement_pack) {
 	****************************************************************************/
 	if (!is_initialized_) {
 		// first measurement
-		cout << "EKF: " << endl;
+		//cout << "UKF: " << endl;
 
 		if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
 			// convert radar from polar to cartesian coordinates and initialize state.
@@ -194,7 +194,7 @@ void UKF::ProcessMeasurement(const MeasurementPackage& measurement_pack) {
 
 
 		// debug print x vector
-		cout << "x_ initialized to: " << x_ << endl;
+		//cout << "x_ initialized to: " << x_ << endl;
 
 		// initialize timestamp
 		previous_timestamp_ = measurement_pack.timestamp_;

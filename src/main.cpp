@@ -31,15 +31,13 @@ int main() {
 	// Create a Kalman Filter instance
 	UKF ukf;
 
-	// used to compute the RMSE later
-	Tools tools;
 	vector<VectorXd> estimations;
 	vector<VectorXd> ground_truth;
 
 #ifdef USE_LATEST_UWS
-	h.onMessage([&ukf, &tools, &estimations, &ground_truth](uWS::WebSocket<uWS::SERVER> *ws, char *data, size_t length, uWS::OpCode opCode) {
+	h.onMessage([&ukf, &estimations, &ground_truth](uWS::WebSocket<uWS::SERVER> *ws, char *data, size_t length, uWS::OpCode opCode) {
 #else
-	h.onMessage([&ukf, &tools, &estimations, &ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+	h.onMessage([&ukf, &estimations, &ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
 #endif
 		// "42" at the start of the message means there's a websocket message event.
 		// The 4 signifies a websocket message
@@ -128,7 +126,7 @@ int main() {
 
 					estimations.push_back(estimate);
 
-					VectorXd RMSE = tools.CalculateRMSE(estimations, ground_truth);
+					VectorXd RMSE = Tools::CalculateRMSE(estimations, ground_truth);
 
 					json msgJson;
 					msgJson["estimate_x"] = p_x;
